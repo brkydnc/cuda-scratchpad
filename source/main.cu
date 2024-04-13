@@ -38,7 +38,7 @@ __global__ void multiply(float* A, float* B, float *C) {
         __syncthreads();
 
         for (int j = 0; j < BLOCK_SIZE; j++)
-            sum += M[row][j] + N[j][col];
+            sum += M[row][j] * N[j][col];
 
         __syncthreads();
     }
@@ -55,7 +55,7 @@ void cublasMultiply(float* B, float *A, float *C) {
     cublasCreate(&handle);
 
     cublasSgemm(handle,
-        CUBLAS_OP_T, CUBLAS_OP_T,
+        CUBLAS_OP_N, CUBLAS_OP_N,
         WIDTH, WIDTH, WIDTH,
         &alpha,
         A, WIDTH,
