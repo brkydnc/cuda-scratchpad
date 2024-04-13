@@ -1,9 +1,12 @@
 #include <stdio.h>
+#include <time.h>
+
 #include <curand.h>
 #include <cublas_v2.h>
 
-#define WIDTH 4
-#define BLOCK_SIZE 2
+#undef DISPLAY_MATRICES
+#define WIDTH 1024
+#define BLOCK_SIZE 32
 #define BLOCKS (WIDTH / BLOCK_SIZE)
 #define SIZE (sizeof(float) * WIDTH * WIDTH)
 
@@ -67,11 +70,12 @@ void cublasMultiply(float* B, float *A, float *C) {
     cublasDestroy(handle);
 }
 
-void fill(float* A) {
+void fill(float* A, float *B) {
     curandGenerator_t rng;
     curandCreateGenerator(&rng, CURAND_RNG_PSEUDO_DEFAULT);
-    curandSetPseudoRandomGeneratorSeed(rng, 123);
+    curandSetPseudoRandomGeneratorSeed(rng, clock());
     curandGenerateUniform(rng, A, WIDTH * WIDTH);
+    curandGenerateUniform(rng, B, WIDTH * WIDTH);
     cudaDeviceSynchronize();
     curandDestroyGenerator(rng);
 }
@@ -106,33 +110,34 @@ int main() {
         printf("(Error C): %s: %s\n", cudaGetErrorName(error_D), cudaGetErrorString(error_D));
     }
 
-    fill(A_d);
-    fill(B_d);
+    fill(A_d, B_d);
 
     cudaMemcpy(A, A_d, SIZE, cudaMemcpyDeviceToHost);
     cudaMemcpy(B, B_d, SIZE, cudaMemcpyDeviceToHost);
-
-    printf("Matrix A:\n");
-    display(A);
-    printf("\n");
-    printf("Matrix B:\n");
-    display(B);
 
     dim3 gridDim(BLOCKS, BLOCKS);
     dim3 blockDim(BLOCK_SIZE, BLOCK_SIZE);
     multiply<<<gridDim, blockDim>>>(A_d, B_d, C_d);
 
-    cublasMultiply(A_d, B_d, D_d);
-
     cudaMemcpy(C, C_d, SIZE, cudaMemcpyDeviceToHost);
-    cudaMemcpy(D, D_d, SIZE, cudaMemcpyDeviceToHost);
 
+    // cublasMultiply(A_d, B_d, D_d);
+    //
+    // cudaMemcpy(D, D_d, SIZE, cudaMemcpyDeviceToHost);
+
+#ifdef DISPLAY_MATRICES
+    printf("Matrix A:\n");
+    display(A);
+    printf("\n");
+    printf("Matrix B:\n");
+    display(B);
     printf("\n");
     printf("Matrix C (multiply):\n");
     display(C);
     printf("\n");
     printf("Matrix D (cuBLAS):\n");
     display(D);
+#endif
 
     cudaFree(A_d);
     cudaFree(B_d);
